@@ -8,9 +8,9 @@ Related project: [Glasgow-Bin-Collection-iCal-Py - Generate 1-year iCal at once]
 
 1. Find your Unique Property Reference Number (UPRN), a 12-digits number in the URL field by searching your postcode on the website of Glasgow City Council [here](https://www.glasgow.gov.uk/forms/refuseandrecyclingcalendar/AddressSearch.aspx).
 
-2. Get your own link by concatenating `https://glasgow-bin-worker.vela.workers.dev/` with your UPRN. For example, https://glasgow-bin-worker.vela.workers.dev/123456789012
+2. Get your own link by concatenating `https://glasgow-bin-worker.vela.workers.dev/` with your UPRN. For example, `https://glasgow-bin-worker.vela.workers.dev/123456789012`. You can preview the iCal at [here](https://icscalendar.com/preview#calendar-preview).
 
-3. Add the online calendar to your calendar service by the URL. For example, https://calendar.google.com/calendar/u/0/r/settings/addbyurl
+3. Add the online calendar to your calendar service by the URL. For example, [Add to Google Calender](https://calendar.google.com/calendar/u/0/r/settings/addbyurl).
 
 4. Sync the calendar events and enjoy
 
