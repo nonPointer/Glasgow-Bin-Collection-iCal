@@ -2,6 +2,8 @@ The bin area in my neighbourhood was always filled with tons of bin bags, so I d
 
 You can simply import the online calendar link into your Outlook, Google Calendar, Apple Calendar, Thunderbird...etc.
 
+Related project: [Glasgow-Bin-Collection-iCal-Py - Generate 1-year iCal at once](https://github.com/nonPointer/Glasgow-Bin-Collection-iCal-Py)
+
 ## Usage
 
 1. Find your Unique Property Reference Number (UPRN), a 12-digits number in the URL field by searching your postcode on the website of Glasgow City Council [here](https://www.glasgow.gov.uk/forms/refuseandrecyclingcalendar/AddressSearch.aspx).
