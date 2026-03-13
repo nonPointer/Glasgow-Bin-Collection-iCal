@@ -1,22 +1,71 @@
-The bin area in my neighbourhood was always filled with tons of bin bags, so I developed a serverless API to crawl the bin collection dates and generate results in iCalendar (a standard protocol for online calendar subscriptions). By using this I can throw my bin bags after they clear the public bins, and will not get my shoes dirty.
+# Glasgow Bin Collection iCal
 
-You can simply import the online calendar link into your Outlook, Google Calendar, Apple Calendar, Thunderbird...etc.
+Crawls Glasgow City Council's bin collection schedule and generates an iCalendar (`.ics`) file. Import it into Outlook, Google Calendar, Apple Calendar, Thunderbird, etc. for automatic reminders.
 
-Related project: [Glasgow-Bin-Collection-iCal-Py - Generate 1-year iCal at once](https://github.com/nonPointer/Glasgow-Bin-Collection-iCal-Py)
+Three implementations are provided: a Python CLI, a Go CLI, and a Cloudflare Worker.
 
-## Usage
+## Step 1: Find your UPRN
 
-1. Find your Unique Property Reference Number (UPRN), a 12-digits number in the URL field by searching your postcode on the website of Glasgow City Council [here](https://www.glasgow.gov.uk/forms/refuseandrecyclingcalendar/AddressSearch.aspx).
+Your Unique Property Reference Number (UPRN) is a 12-digit number. Find it by searching your postcode on the [Glasgow City Council refuse calendar](https://onlineservices.glasgow.gov.uk/forms/refuseandrecyclingcalendar/AddressSearch.aspx) — it appears in the page URL after you select your address.
 
-2. Get your own link by concatenating `https://glasgow-bin-worker.vela.workers.dev/` with your UPRN. For example, `https://glasgow-bin-worker.vela.workers.dev/123456789012`. You can preview the iCal at [here](https://icscalendar.com/preview#calendar-preview).
+## Step 2: Generate your iCal
 
-3. Add the online calendar to your calendar service by the URL. For example, [Add to Google Calender](https://calendar.google.com/calendar/u/0/r/settings/addbyurl).
+### Python CLI
 
-4. Sync the calendar events and enjoy
+Requires Python 3 with `requests`, `beautifulsoup4`, and `icalendar`.
 
-This repository also host the `main.py`, a Python script for generating `.ics` file locally. Usage: `python3 main.py [UPRN] [FILENAME.ics]`
+```sh
+pip install requests beautifulsoup4 icalendar
+python3 main.py [UPRN] [output.ics]
+```
 
-## Privacy Concerns
+### Go CLI
 
-This is a read-only service powered by Cloudflare Worker's serverless environment. It does not store, track or process any user information.
+No dependencies. Pre-built binaries for Windows, macOS, and Linux (amd64/arm64) are available as artifacts from GitHub Actions.
 
+```sh
+./glasgow-bin [UPRN] [output.ics]
+```
+
+To build from source:
+
+```sh
+go build -o glasgow-bin .
+```
+
+### Cloudflare Worker
+
+Deploy `index.js` to [Cloudflare Workers](https://workers.cloudflare.com/). Once live, subscribe to your calendar via:
+
+```
+https://your-worker.workers.dev/[UPRN]
+```
+
+You can preview any `.ics` URL at [icscalendar.com](https://icscalendar.com/preview#calendar-preview).
+
+## Step 3: Subscribe
+
+Import the `.ics` file or subscribe via URL in your calendar app. Example: [Add to Google Calendar](https://calendar.google.com/calendar/u/0/r/settings/addbyurl).
+
+## Testing
+
+```sh
+# Unit tests (all three implementations)
+bash tests/unit_test.sh
+
+# Smoke test — compares Python, Go, and JS output for a real UPRN
+bash tests/smoke_test.sh [UPRN]
+
+# Go tests only
+go test ./...
+
+# Python tests only
+python3 tests/test_python.py
+
+# JS tests only
+node tests/test_js.js
+```
+
+## Privacy
+
+This is a read-only tool. It fetches publicly available collection schedule data from Glasgow City Council. No user data is stored, tracked, or transmitted beyond the council's own website.

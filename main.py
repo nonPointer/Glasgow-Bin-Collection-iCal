@@ -6,17 +6,27 @@ import datetime
 import sys
 from enum import Enum
 
-if sys.argv[1] == "help":
+
+def usage():
     print("Usage: python3 main.py [UPRN] [filename.ics]")
-    exit()
-elif len(sys.argv) != 3:
-    print("Invalid number of arguments")
-    exit()
+    sys.exit(0)
 
-UPRN = sys.argv[1].strip()
-FILENAME = sys.argv[2].strip()
 
-API = "https://www.glasgow.gov.uk/forms/refuseandrecyclingcalendar/CollectionsCalendar.aspx?UPRN="
+def validate_args():
+    if len(sys.argv) < 2:
+        usage()
+    if sys.argv[1] == "help":
+        usage()
+    if len(sys.argv) != 3:
+        print("Error: Invalid number of arguments")
+        usage()
+
+
+API = "https://onlineservices.glasgow.gov.uk/forms/refuseandrecyclingcalendar/PrintCalendar.aspx?UPRN="
+HEADERS = {"User-Agent": "Mozilla/5.0"}
+
+MONTHS = ["January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December"]
 
 
 class Bin(Enum):
@@ -35,46 +45,75 @@ BIN_DESCRIPTIONS = {
     Bin.GREEN: "Any items that cannot go into a recycling a blue, purple, brown bin or grey food caddy, can go into a general waste bin other than hazardous, bulky or electrical items and batteries."
 }
 
+ALT_TO_BIN = {
+    "blue": Bin.BLUE,
+    "grey": Bin.GREY,
+    "green": Bin.GREEN,
+    "purple": Bin.PURPLE,
+    "brown": Bin.BROWN,
+}
 
-def create_event(bin: Bin, date: int) -> icalendar.Event:
+
+def create_event(bin: Bin, date: datetime.date) -> icalendar.Event:
     event = icalendar.Event()
     event.add('summary', "Bin collection - " + bin.name)
-
-    today = datetime.datetime.today()
-    date = datetime.datetime(today.year, today.month, date)
-    event.add('dtstart', date.date())
-    event.add('dtstamp', today)
+    event.add('dtstart', date)
+    event.add('dtstamp', datetime.datetime.today())
     event.add('LOCATION', '')
     event.add('DESCRIPTION', BIN_DESCRIPTIONS[bin])
     event['uid'] = str(uuid.uuid1())
-
     return event
 
 
-if __name__ == "__main__":
-    r = requests.get(API + UPRN)
-    soup = bs4.BeautifulSoup(r.text, "html.parser")
-    tds = soup.find_all("td", attrs={"class": "CalendarDayStyle"})
-    tds = list(filter(lambda x: x.text != "", tds))
-    print("Load {} days".format(len(tds)))
+def fetch_page(uprn: str) -> bs4.BeautifulSoup:
+    try:
+        r = requests.get(API + uprn, headers=HEADERS, timeout=15)
+        r.raise_for_status()
+    except requests.exceptions.Timeout:
+        print("Error: Request timed out")
+        sys.exit(1)
+    except requests.exceptions.HTTPError as e:
+        print(f"Error: HTTP {e.response.status_code} from server")
+        sys.exit(1)
+    except requests.exceptions.RequestException as e:
+        print(f"Error: Failed to fetch page - {e}")
+        sys.exit(1)
+    return bs4.BeautifulSoup(r.text, "html.parser")
 
+
+def parse_events(soup: bs4.BeautifulSoup) -> list:
+    today = datetime.date.today()
     events = []
-    for td in tds:
-        cur = int(td.attrs["title"].split(",")[1].split(" ")[1])
-        if td.select("img"):
-            for img in td.select("img"):
-                title = img.attrs["title"]
-                if "blue" in title:
-                    events.append(create_event(Bin.BLUE, cur))
-                if "grey" in title:
-                    events.append(create_event(Bin.GREY, cur))
-                if "green" in title:
-                    events.append(create_event(Bin.GREEN, cur))
-                if "purple" in title:
-                    events.append(create_event(Bin.PURPLE, cur))
-                if "brown" in title:
-                    events.append(create_event(Bin.BROWN, cur))
+    total_days = 0
 
+    for month_name in MONTHS:
+        table = soup.find("table", id=month_name + "_Calendar")
+        if not table:
+            continue
+        month_num = MONTHS.index(month_name) + 1
+
+        for td in table.find_all("td", class_="calendar-day"):
+            day_td = td.find("td", attrs={"align": "right"})
+            if not day_td or not day_td.text.strip():
+                continue
+            try:
+                day = int(day_td.text.strip())
+                date = datetime.date(today.year, month_num, day)
+            except ValueError:
+                continue
+            total_days += 1
+
+            for img in td.find_all("img"):
+                alt = img.attrs.get("alt", "").lower()
+                for key, bin_type in ALT_TO_BIN.items():
+                    if key in alt:
+                        events.append(create_event(bin_type, date))
+
+    print(f"Loaded {total_days} days, {len(events)} collection events")
+    return events
+
+
+def build_calendar(events: list) -> icalendar.Calendar:
     cal = icalendar.Calendar()
     cal.add("PRODID", "-//nonPointer//Glasgow Bin Collection iCal//EN")
     cal.add("VERSION", "2.0")
@@ -83,5 +122,26 @@ if __name__ == "__main__":
     cal.add("X-WR-CALDESC", "Events of bin collection in Glasgow area")
     for event in events:
         cal.add_component(event)
-    with open(FILENAME, "wb") as f:
-        f.write(cal.to_ical())
+    return cal
+
+
+if __name__ == "__main__":
+    validate_args()
+    UPRN = sys.argv[1].strip()
+    FILENAME = sys.argv[2].strip()
+
+    soup = fetch_page(UPRN)
+    events = parse_events(soup)
+
+    if not events:
+        print("Warning: No collection events found. Check that the UPRN is correct.")
+        sys.exit(1)
+
+    cal = build_calendar(events)
+    try:
+        with open(FILENAME, "wb") as f:
+            f.write(cal.to_ical())
+        print(f"Saved to {FILENAME}")
+    except OSError as e:
+        print(f"Error: Could not write file - {e}")
+        sys.exit(1)

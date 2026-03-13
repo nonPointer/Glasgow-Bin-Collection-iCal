@@ -1,0 +1,14 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Go binaries
+glasgow-bin
+glasgow-bin-*
+
+# Generated iCal files
+*.ics
+
+# Temp test files
+/tmp/
